@@ -46,3 +46,7 @@
 
 [[layers]]
     name = "checkers"
+    
+[[custom_plugins]]
+    repo = "hashivim/vim-terraform"
+    merged = false
