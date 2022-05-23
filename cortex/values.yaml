@@ -1,0 +1,475 @@
+image:
+  repository: artifactory.prod.hy-vee.cloud/docker-virtual/cortexproject/cortex
+
+tags:
+  blocks-storage-memcached: true
+
+rbac:
+  create: false
+  pspEnabled: false
+
+nginx:
+  enabled: false
+
+alertmanager:
+  enabled: false
+
+configs:
+  enabled: false
+
+ruler:
+  enabled: false
+
+# https://cortexmetrics.io/docs/configuration/configuration-file
+config:
+  auth_enabled: true
+  http_prefix: /api/prom
+
+  tenant_federation:
+    enabled: true
+
+  api:
+    prometheus_http_prefix: /prometheus
+    response_compression_enabled: true
+
+  compactor:
+    compaction_interval: 30m
+    sharding_enabled: true
+    sharding_ring:
+      kvstore:
+        store: etcd
+        prefix: collectors/
+        etcd:
+          username: root
+          endpoints:
+            - v1-cortex-etcd-headless:2379
+          dial_timeout: 10s
+          max_retries: 10
+
+  ingester:
+    # Ignored when using blocks.. which is the only option going forward anyway
+    # walconfig:
+    #   wal_enabled: true
+    #   recover_from_wal: true
+    max_transfer_retries: 0
+    instance_limits:
+      max_inflight_push_requests: 5000
+
+    lifecycler:
+      join_after: 0s
+      final_sleep: 0s
+      num_tokens: 512
+      heartbeat_period: 15s
+
+      ring:
+        replication_factor: 3
+
+        kvstore:
+          store: etcd
+          prefix: collectors/
+          etcd:
+            username: root
+            endpoints:
+              - v1-cortex-etcd-headless:2379
+            dial_timeout: 10s
+            max_retries: 10
+
+  limits:
+    accept_ha_samples: true
+    compactor_blocks_retention_period: 180d # Overridden per tenant, see values-prod.yaml
+    enforce_metric_name: false
+    ingestion_burst_size: 142857
+    ingestion_rate: 142857
+    ingestion_rate_strategy: global
+    max_fetched_series_per_query: 100000
+    max_global_series_per_user: 1000000
+    max_query_length: 768h
+    max_series_per_metric: 0 # Disabled in favour of the max global limit
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+
+  schema:
+    configs:
+      - from: 2021-06-25
+        store: gcs
+        object_store: gcs
+        schema: v10
+        index:
+          prefix: index_
+          period: 168h
+        chunks:
+          prefix: chunks_
+          period: 168h
+
+  server:
+    http_listen_port: 8080
+    grpc_listen_port: 9095
+    grpc_server_max_recv_msg_size: 104857600
+    grpc_server_max_send_msg_size: 104857600
+    grpc_server_max_concurrent_streams: 1000
+
+  ingester_client:
+    grpc_client_config:
+      max_recv_msg_size: 104857600
+      max_send_msg_size: 104857600
+      grpc_compression: "gzip" # https://github.com/cortexproject/cortex/pull/2940
+
+  storage:
+    engine: blocks
+
+  blocks_storage:
+    backend: gcs
+    gcs:
+      bucket_name:
+    tsdb:
+      dir: /data/tsdb
+      # Configure ingesters -blocks-storage.tsdb.retention-period
+      # at least as -querier.query-ingesters-within
+      # setting to query-ingesters-within + 1h
+      retention_period: 14h # default is 6h
+    bucket_store:
+      sync_dir: /data/tsdb-sync
+      # Lower -blocks-storage.bucket-store.ignore-deletion-marks-delay to 1h,
+      # otherwise non compacted blocks could be queried anyway,
+      # even if their compacted replacement is available
+      ignore_deletion_mark_delay: 1h # default is 6h
+
+      bucket_index:
+        # The bucket index reduces the number of API calls to the storage bucket
+        # and the startup time of the store-gateway.
+        # Ensure bucket index is enabled for the store-gateway.
+        enabled: true
+
+      index_header_lazy_loading_enabled: true
+      index_header_lazy_loading_idle_timeout: 60m
+
+      # set concurrency equal to max idle connections to avoid constantly reopening connections
+      index_cache:
+        memcached:
+          timeout: 500ms
+          max_async_buffer_size: 10000000
+          max_async_concurrency: 100
+          max_get_multi_batch_size: 1000
+          max_get_multi_concurrency: 750
+          max_idle_connections: 750
+          max_item_size: 33554432 # 32Mi
+      chunks_cache:
+        memcached:
+          timeout: 500ms
+          max_async_buffer_size: 10000000
+          max_async_concurrency: 100
+          max_get_multi_batch_size: 1000
+          max_get_multi_concurrency: 750
+          max_idle_connections: 750
+          max_item_size: 67108864 # 32Mi
+      metadata_cache:
+        memcached:
+          timeout: 500ms
+          max_async_buffer_size: 10000000
+          max_async_concurrency: 100
+          max_get_multi_batch_size: 1000
+          max_get_multi_concurrency: 750
+          max_idle_connections: 750
+          max_item_size: 33554432 # 32Mi
+
+  distributor:
+    remote_timeout: 10s
+    shard_by_all_labels: true
+    pool:
+      health_check_ingesters: true
+    ha_tracker:
+      enable_ha_tracker: true
+      kvstore:
+        store: etcd
+        prefix: ha-tracker/
+        etcd:
+          username: root
+          endpoints:
+            - v1-cortex-etcd-headless:2379
+          dial_timeout: 10s
+          max_retries: 10
+    ring:
+      heartbeat_timeout: 10m
+      kvstore:
+        store: etcd
+        prefix: collectors/
+        etcd:
+          username: root
+          endpoints:
+            - v1-cortex-etcd-headless:2379
+          dial_timeout: 10s
+          max_retries: 10
+
+  querier:
+    store_gateway_addresses: dns+v1-cortex-store-gateway-headless:9095
+    active_query_tracker_dir: /data/cortex/querier
+    query_ingesters_within: 13h
+    query_store_after: 12h
+    max_concurrent: 8
+
+  query_scheduler:
+    grpc_client_config:
+      grpc_compression: "gzip" # https://github.com/cortexproject/cortex/pull/2940
+
+  query_range:
+    split_queries_by_interval: 24h
+    align_queries_with_step: false
+    cache_results: true
+    results_cache:
+      cache:
+        memcached:
+          expiration: 24h
+        memcached_client:
+          timeout: 1s
+
+  frontend:
+    log_queries_longer_than: 10s
+    grpc_client_config:
+      grpc_compression: "gzip" # https://github.com/cortexproject/cortex/pull/2940
+
+  frontend_worker:
+    grpc_client_config:
+      max_send_msg_size: 104857600
+      grpc_compression: "gzip" # https://github.com/cortexproject/cortex/pull/2940
+
+compactor:
+  enabled: true
+  replicas: 2
+  persistentVolume:
+    storageClass: ssd
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+# write path
+distributor:
+  enabled: true
+  # Needed until https://github.com/cortexproject/cortex-helm-chart/pull/334 is merged
+  enable: true
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+  # extra args should be replaced once the chart supports runtime configuration
+  extraArgs:
+    # TODO: should this be in config.limits now?
+    validation.max-label-names-per-series: 50
+  resources:
+    limits:
+      cpu: 3
+      memory: 4Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+
+ingester:
+  enabled: true
+  replicas: 3
+  statefulSet:
+    enabled: true
+  persistentVolume:
+    storageClass: ssd
+  resources:
+    limits:
+      cpu: 3
+      memory: 4Gi
+    requests:
+      cpu: 1
+      memory: 1Gi
+
+# read path
+query_frontend:
+  enabled: true
+  replicas: 2
+  resources:
+    limits:
+      cpu: 1
+      memory: 512Mi
+    requests:
+      cpu: 10m
+      memory: 256Mi
+
+querier:
+  enabled: true
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 12
+  resources:
+    limits:
+      cpu: 2
+      memory: 3Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+store_gateway:
+  enabled: true
+  replicas: 2
+  persistentVolume:
+    storageClass: ssd
+  resources:
+    limits:
+      cpu: 2
+      memory: 3Gi
+    requests:
+      cpu: 100m
+      memory: 512Mi
+
+runtimeconfigmap:
+  # https://cortexmetrics.io/docs/configuration/arguments/#runtime-configuration-file
+  runtime_config: {}
+
+memcached-blocks:
+  enabled: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPU: 80
+    targetMemory: 80
+  metrics:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 30M
+      limits:
+        cpu: 100m
+        memory: 100M
+  persistence:
+    enabled: true
+    storageClass: ssd
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+  extraEnv:
+    # -- MEMCACHED_CACHE_SIZE is the amount of memory allocated to memcached for object storage
+    - name: MEMCACHED_CACHE_SIZE
+      value: "4096"
+    # -- MEMCACHED_MAX_CONNECTIONS is the maximum number of simultaneous connections to the memcached service
+    - name: MEMCACHED_MAX_CONNECTIONS
+      value: "8192"
+    # -- MEMCACHED_THREADS is the number of threads to use when processing incoming requests.
+    # By default, memcached is configured to use 4 concurrent threads. The threading improves the performance of
+    # storing and retrieving data in the cache, using a locking system to prevent different threads overwriting or updating the same values.
+    - name: MEMCACHED_THREADS
+      value: "4"
+
+memcached-blocks-index:
+  enabled: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPU: 80
+    targetMemory: 80
+  metrics:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 30M
+      limits:
+        cpu: 100m
+        memory: 100M
+  persistence:
+    enabled: true
+    storageClass: ssd
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+  extraEnv:
+    # -- MEMCACHED_CACHE_SIZE is the amount of memory allocated to memcached for object storage
+    - name: MEMCACHED_CACHE_SIZE
+      value: "4096"
+    # -- MEMCACHED_MAX_CONNECTIONS is the maximum number of simultaneous connections to the memcached service
+    - name: MEMCACHED_MAX_CONNECTIONS
+      value: "8192"
+    # -- MEMCACHED_THREADS is the number of threads to use when processing incoming requests.
+    # By default, memcached is configured to use 4 concurrent threads. The threading improves the performance of
+    # storing and retrieving data in the cache, using a locking system to prevent different threads overwriting or updating the same values.
+    - name: MEMCACHED_THREADS
+      value: "4"
+
+memcached-blocks-metadata:
+  enabled: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPU: 80
+    targetMemory: 80
+  metrics:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 30M
+      limits:
+        cpu: 100m
+        memory: 100M
+  persistence:
+    enabled: true
+    storageClass: ssd
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+  extraEnv:
+    # -- MEMCACHED_CACHE_SIZE is the amount of memory allocated to memcached for object storage
+    - name: MEMCACHED_CACHE_SIZE
+      value: "4096"
+    # -- MEMCACHED_MAX_CONNECTIONS is the maximum number of simultaneous connections to the memcached service
+    - name: MEMCACHED_MAX_CONNECTIONS
+      value: "8192"
+    # -- MEMCACHED_THREADS is the number of threads to use when processing incoming requests.
+    # By default, memcached is configured to use 4 concurrent threads. The threading improves the performance of
+    # storing and retrieving data in the cache, using a locking system to prevent different threads overwriting or updating the same values.
+    - name: MEMCACHED_THREADS
+      value: "4"
+
+memcached-frontend:
+  enabled: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPU: 80
+    targetMemory: 80
+  metrics:
+    resources:
+      requests:
+        cpu: 20m
+        memory: 30M
+      limits:
+        cpu: 100m
+        memory: 100M
+  persistence:
+    enabled: true
+    storageClass: ssd
+  replicaCount: 2
+  resources:
+    limits:
+      cpu: 1
+      memory: 1Gi
+  extraEnv:
+    # -- MEMCACHED_CACHE_SIZE is the amount of memory allocated to memcached for object storage
+    - name: MEMCACHED_CACHE_SIZE
+      value: "4096"
+    # -- MEMCACHED_MAX_CONNECTIONS is the maximum number of simultaneous connections to the memcached service
+    - name: MEMCACHED_MAX_CONNECTIONS
+      value: "8192"
+    # -- MEMCACHED_THREADS is the number of threads to use when processing incoming requests.
+    # By default, memcached is configured to use 4 concurrent threads. The threading improves the performance of
+    # storing and retrieving data in the cache, using a locking system to prevent different threads overwriting or updating the same values.
+    - name: MEMCACHED_THREADS
+      value: "4"
