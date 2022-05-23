@@ -1,0 +1,23 @@
+ingester:
+  persistentVolume:
+    size: 25Gi
+  resources:
+    limits:
+      cpu: 3
+      memory: 15Gi
+    requests:
+      cpu: 1
+      memory: 5Gi
+
+compactor:
+  persistentVolume:
+    size: 15Gi
+
+config:
+  blocks_storage:
+    gcs:
+      bucket_name: hy-vee-shared-vpc-service-lab-cortex-storage-us-central1
+
+store_gateway:
+  persistentVolume:
+    size: 10Gi
