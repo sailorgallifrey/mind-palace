@@ -1,0 +1,5 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhistcnt =3
+let g:netrw_dirhist_3='/root/.aws'
+let g:netrw_dirhist_2='/root/.aws/saml2aws'
+let g:netrw_dirhist_1='/root/.aws'

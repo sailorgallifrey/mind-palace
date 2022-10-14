@@ -5,6 +5,10 @@ export BASH_COMPLETION_COMPAT_DIR="/usr/local/etc/bash_completion.d"
 alias k=kubectl
 complete -F __start_kubectl k
 
+function dev-env() {
+  docker run -v ~/.saml2aws:/root/.saml2aws -v ~/.aws:/root/.aws -v ~/.config:/root/.config -v "$PWD":/src -it dev-env:sbt /bin/bash
+}
+
 function showcert() {
   nslookup $1
   (openssl s_client -showcerts -servername $1 -connect $1:443 <<< "Q" | openssl x509 -text | grep -iA2 "Validity")
