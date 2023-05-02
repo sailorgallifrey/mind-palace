@@ -30,12 +30,18 @@ packer.startup(function()
   -- Packer can manage itself
   use 'wbthomason/packer.nvim'
 
+  use {
+	  "catppuccin/nvim",
+	  as = "catppuccin",
+	  run = ":CatppuccinCompile"
+  }
+
   use{ 'crispgm/nvim-go', requires = { 'nvim-lua/plenary.nvim' } }
 
   use('rcarriga/nvim-notify')
 
   use('neovim/nvim-lspconfig')
-
+ 
   use('simrat39/rust-tools.nvim')
 
   use('google/vim-jsonnet')
@@ -107,7 +113,6 @@ require("nvim-tree").setup({
 ----------------------------------
 -- global
 vim.opt_global.completeopt = { "menuone", "noinsert", "noselect" }
-vim.opt_global.shortmess:remove("F"):append("c")
 
 map('n', '<space>ft', ':NvimTreeToggle<CR>', {noremap = true, silent = true})
 
