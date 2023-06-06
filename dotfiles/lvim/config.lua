@@ -83,6 +83,8 @@ lvim.builtin.treesitter.ensure_installed = {
   "rust",
   "java",
   "yaml",
+  "gotmpl",
+  "query"
 }
 
 lvim.builtin.treesitter.ignore_install = { "haskell" }
@@ -109,7 +111,7 @@ lvim.builtin.treesitter.highlight.enable = true
 
 -- ---configure a server manually. !!Requires `:LvimCacheReset` to take effect!!
 -- ---see the full default list `:lua print(vim.inspect(lvim.lsp.automatic_configuration.skipped_servers))`
--- vim.list_extend(lvim.lsp.automatic_configuration.skipped_servers, { "pyright" })
+-- vim.list_extend(lvim.lsp.automatic_configuration.skipped_servers, { "yamlls" })
 -- local opts = {} -- check the lspconfig documentation for a list of all possible options
 -- require("lvim.lsp.manager").setup("pyright", opts)
 
@@ -167,6 +169,10 @@ lvim.format_on_save.pattern = { "*.lua", "*.md" }
 -- }
 
 lvim.plugins = {
+  {
+    "nvim-treesitter/playground",
+    event = "BufRead",
+  },
   {
     "catppuccin/nvim",
     name = "catppuccin",
