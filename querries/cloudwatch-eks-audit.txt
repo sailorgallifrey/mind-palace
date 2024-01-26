@@ -1,0 +1,8 @@
+fields @logStream, @timestamp, @message
+| filter @logStream like /kube-apiserver-audit/
+| filter objectRef.resource like "pod"
+| filter verb == "create"
+| filter requestObject.spec.containers.0.image like "netshoot"
+| display user.extra.sessionName.0, @logStream, @timestamp, @message, objectRef.namespace, objectRef.name
+| sort @timestamp desc
+| limit 50
