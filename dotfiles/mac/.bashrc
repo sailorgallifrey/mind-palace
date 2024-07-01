@@ -3,6 +3,10 @@ export BASH_COMPLETION_COMPAT_DIR="/usr/local/etc/bash_completion.d"
 
 . ~/.bash_prompt
 alias k=kubectl
+alias vir='dir="$(ls -a $DEV_FOLDER | sk)" && [[ -n "$dir" ]] && vi "$DEV_FOLDER/$dir"'
+alias k9sc='context="$(kubectl config get-contexts -o name |sk)" && [[ -n "$context" ]] && k9s --context "$context"'
+alias kc='context="$(kubectl config get-contexts -o name |sk)" && [[ -n "$context" ]] && kubectl config use-context "$context"'
+
 complete -F __start_kubectl k
 
 function dev-env() {
