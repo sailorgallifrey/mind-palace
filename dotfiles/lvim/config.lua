@@ -10,8 +10,8 @@ an executable
 
 -- general
 lvim.log.level = "warn"
-lvim.format_on_save.enabled = false
 lvim.colorscheme = "catppuccin-mocha"
+-- lvim.colorscheme = "catppuccin-frappe"
 -- to disable icons and use a minimalist setup, uncomment the following
 -- lvim.use_icons = false
 
@@ -89,6 +89,13 @@ lvim.builtin.treesitter.ensure_installed = {
 
 lvim.builtin.treesitter.ignore_install = { "haskell" }
 lvim.builtin.treesitter.highlight.enable = true
+
+-- fixes errors with .tfvars files when using terraform-ls
+vim.filetype.add({
+  extension = {
+    tfvars = "terraform"
+  }
+})
 
 -- generic LSP settings
 
@@ -226,7 +233,7 @@ formatters.setup {
 }
 
 lvim.format_on_save.enabled = true
-lvim.format_on_save.pattern = { "*.lua", "*.md" }
+lvim.format_on_save.pattern = { "*.lua", "*.md", "*.go" }
 
 -- -- set additional linters
 -- local linters = require "lvim.lsp.null-ls.linters"
@@ -245,11 +252,33 @@ lvim.format_on_save.pattern = { "*.lua", "*.md" }
 --     filetypes = { "javascript", "python" },
 --   },
 -- }
+--
+
+local _, luasnip = pcall(require, "luasnip")
+
+luasnip.filetype_extend("typescript", { "tsdoc" })
+luasnip.filetype_extend("javascript", { "jsdoc" })
+luasnip.filetype_extend("lua", { "luadoc" })
+luasnip.filetype_extend("python", { "pydoc" })
+luasnip.filetype_extend("rust", { "rustdoc" })
+luasnip.filetype_extend("cs", { "csharpdoc" })
+luasnip.filetype_extend("java", { "javadoc" })
+luasnip.filetype_extend("c", { "cdoc" })
+luasnip.filetype_extend("cpp", { "cppdoc" })
+luasnip.filetype_extend("php", { "phpdoc" })
+luasnip.filetype_extend("kotlin", { "kdoc" })
+luasnip.filetype_extend("ruby", { "rdoc" })
+luasnip.filetype_extend("sh", { "shelldoc" })
 
 lvim.plugins = {
   {
     "nvim-treesitter/playground",
     event = "BufRead",
+  },
+  {
+    "npxbr/glow.nvim",
+    ft = { "markdown" }
+    -- run = "yay -S glow"
   },
   {
     "catppuccin/nvim",
@@ -264,7 +293,26 @@ lvim.plugins = {
   {
     "scalameta/nvim-metals",
     config = function()
-      require("user.metals").config()
+      local api = vim.api
+      local metals_config = require("metals").bare_config()
+      metals_config.settings = {
+        showImplicitArguments = true,
+        showInferredType = true,
+        superMethodLensesEnabled = true,
+        showImplicitConversionsAndClasses = true,
+      }
+      -- Autocmd that will actually be in charging of starting the whole thing
+      local nvim_metals_group = api.nvim_create_augroup("nvim-metals", { clear = true })
+      api.nvim_create_autocmd("FileType", {
+        -- NOTE: You may or may not want java included here. You will need it if you
+        -- want basic Java support but it may also conflict if you are using
+        -- something like nvim-jdtls which also works on a java filetype autocmd.
+        pattern = { "scala", "sbt" },
+        callback = function()
+          require("metals").initialize_or_attach(metals_config)
+        end,
+        group = nvim_metals_group,
+      })
     end,
   },
   {
@@ -285,8 +333,8 @@ dap.configurations.scala = {
     request = "launch",
     name = "Run or Test Target",
     metals = {
-      runType = "runOrTestFile",
-    },
+      runType = "runOrTestFile"
+    }
   },
   {
     type = "scala",
@@ -294,8 +342,8 @@ dap.configurations.scala = {
     name = "Test Target",
     metals = {
       runType = "testTarget",
-    },
-  },
+    }
+  }
 }
 
 -- Autocommands (https://neovim.io/doc/user/autocmd.html)

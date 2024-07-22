@@ -1,0 +1,19 @@
+{
+  "hello": {
+    "prefix": "struct",
+    "body": ["type ${1:s} struct {
+
+}"],
+    "description": "creates a struct"
+  },
+  "main": {
+    "prefix": "main",
+    "body": ["package main
+  
+import \"fmt\"
+
+func main() {
+  fmt.Printf(\"Hello World\")
+}"]
+  }
+}
