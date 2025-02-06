@@ -66,6 +66,8 @@ lvim.builtin.dap.active = true
 lvim.builtin.alpha.active = true
 lvim.builtin.alpha.mode = "dashboard"
 lvim.builtin.terminal.active = true
+lvim.builtin.terminal.open_mapping = "<c-t>"
+lvim.keys.term_mode = { ["<C-l>"] = false }
 lvim.builtin.nvimtree.setup.view.side = "left"
 lvim.builtin.nvimtree.setup.renderer.icons.show.git = false
 
