@@ -122,6 +122,7 @@ vim.filetype.add({
 -- ---configure a server manually. !!Requires `:LvimCacheReset` to take effect!!
 -- ---see the full default list `:lua print(vim.inspect(lvim.lsp.automatic_configuration.skipped_servers))`
 vim.list_extend(lvim.lsp.automatic_configuration.skipped_servers, { "csharp_ls" })
+
 -- local opts = {} -- check the lspconfig documentation for a list of all possible options
 -- require("lvim.lsp.manager").setup("pyright", opts)
 
@@ -235,7 +236,7 @@ formatters.setup {
 }
 
 lvim.format_on_save.enabled = true
-lvim.format_on_save.pattern = { "*.lua", "*.md", "*.go" }
+lvim.format_on_save.pattern = { "*.lua", "*.md", "*.go", "*.ts" }
 
 -- -- set additional linters
 -- local linters = require "lvim.lsp.null-ls.linters"
