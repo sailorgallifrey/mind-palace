@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: tmp-shell-testtime
+  name: tmp-shell-testtime
+  namespace: default
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: karpenter.k8s.aws/instance-generation
+            operator: Gt
+            values:
+            - "6"
+          - key: karpenter.k8s.aws/instance-hypervisor
+            operator: In
+            values:
+            - "nitro"
+  containers:
+  - image: nicolaka/netshoot
+    name: tmp-shell-testtime
+    command: ["/bin/bash"]
+    args: ["-c", "while true; do ping localhost; sleep 60;done"]
