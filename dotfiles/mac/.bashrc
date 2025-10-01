@@ -150,6 +150,8 @@ say -v Kyoko "${expressions[$(jot -r 1 0) % ${#expressions[@]} ]}"
 
 #say -v Kyoko Notice me senpai
 
+function gprunemerged() {
+    main=$(git remote show origin | sed -n "/HEAD branch/s/.*: //p")
+    git checkout "$main" && git pull && git branch -vv | grep -v "$main" | grep ": gone" | awk '{print $1}' | xargs -n 1 git branch -D
+}
 
-alias gprunemerged='git remote show origin | sed -n "/HEAD branch/s/.*: //p" | xargs -L1 -J % git checkout % && git pull && comm -12 <(git branch | sed "s/ *//g") <(git remote prune origin | sed "s/^.*origin\///g") | xargs -L1 -J % git branch -D %'
-alias gprunemergedmain='git checkout main && comm -12 <(git branch | sed "s/ *//g") <(git remote prune origin | sed "s/^.*origin\///g") | xargs -L1 -J % git branch -D %'
