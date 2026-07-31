@@ -10,13 +10,14 @@
 #   Which will then run for 30mins and will push through 300 concurrent requests a second over that period
 #   So on the last iteration we'll hit the service 540,000 times over the last 30 minutes period (300*1800)
 
-rates=(5 10 40 50 75 100)
-durations=(5s 10s 90s 120s 200s 300s)
+rates=(400 500 750 1000 1500 2000)
+durations=(5s 10s 20s 30s 60s 200s)
 url=$1
+jwt=$2
 
 for i in $(seq 0 5); do
    printf "\t- rate: ${rates[$i]} rps | duration: ${durations[$i]}\n" # Bash 4.2 supports ${var::-1} for removing n number of characters from end of a string
-   echo "GET $url" | vegeta attack -rate="${rates[$i]}" -duration="${durations[$i]}" -insecure > "results-${i}.bin"
+   jq -ncM --arg url "$url" --arg jwt "$jwt" '{method: "GET", url: $url, header: {"Authorization": ["Bearer \($jwt)"], "User-Agent": ["Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"]}}' | vegeta attack -format=json -rate="${rates[$i]}" -duration="${durations[$i]}" > "results-${i}.bin"
 done
 
 # Main result
@@ -31,6 +32,6 @@ for i in $(seq 0 5); do
 done
 
 # Cleanup
-for i in $(seq 0 5); do
-   rm "results-${i}.bin"
-done
+# for i in $(seq 0 5); do
+#    rm "results-${i}.bin"
+# done
