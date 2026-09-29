@@ -1,5 +1,14 @@
 export NODE_ENV=localhost
 
+# Fallback for interactive non-login shells, which never read .zprofile.
+# Sourcing twice is safe: PATH is de-duplicated by `typeset -U`.
+if [[ -z "$_ZSH_ENV_LOADED" ]]; then
+  typeset -U path PATH
+  [[ -r "$HOME/.zsh_path" ]]    && source "$HOME/.zsh_path"
+  [[ -r "$HOME/.zsh_secrets" ]] && source "$HOME/.zsh_secrets"
+fi
+export _ZSH_ENV_LOADED=1
+
 # --- completion ------------------------------------------------------------
 # Homebrew-provided zsh completions
 if [[ -d /opt/homebrew/share/zsh/site-functions ]]; then

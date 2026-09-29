@@ -1,3 +1,17 @@
 .DS_Store
 dotfiles/lvim/lazy-lock.json
 results*.bin
+
+# Machine-local shell env: never commit real paths or credentials.
+# Only the *.example templates are tracked.
+.zsh_path
+.zsh_secrets
+**/.zsh_path
+**/.zsh_secrets
+!**/.zsh_path.example
+!**/.zsh_secrets.example
+.bash_secrets
+**/.bash_secrets
+.env
+*.env
+!*.env.example

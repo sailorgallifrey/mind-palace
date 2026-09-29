@@ -1,0 +1,37 @@
+# Template for ~/.zsh_path
+#
+# Copy to ~/.zsh_path and fill in machine-local values. The real file is NOT
+# tracked in this repo, because paths are specific to each machine.
+#
+#   cp dotfiles/mac-zsh/.zsh_path.example ~/.zsh_path
+#
+# `typeset -U path PATH` keeps the array de-duplicated, so re-sourcing this
+# file (e.g. in a nested shell) will never grow PATH.
+
+typeset -U path PATH
+
+export PATH="/usr/local/opt/libpq/bin:$PATH"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+export PATH="$HOME/go/bin:$HOME/.cargo/bin:$HOME/local/bin:$PATH"
+export PATH="$PATH:$HOME/.dotnet/tools"
+export PATH="$PATH:/Library/Frameworks/Mono.framework/Versions/Current/bin:/opt/homebrew/Cellar/dotnet/"
+#export DOTNET_PATH="/opt/homebrew/Cellar/dotnet/"
+#export DOTNET_ROOT="/opt/homebrew/opt/dotnet/libexec"
+
+export PATH="$PATH:$HOME/Library/Application Support/JetBrains/Toolbox/scripts"
+
+export NVIM_FOLDER="$HOME/.config/nvim"
+export DEV_FOLDER="$HOME/Developer/"
+
+export GPG_TTY=$(tty)
+
+# --- java ------------------------------------------------------------------
+export JAVA_8_HOME="$HOME/Library/Java/JavaVirtualMachines/amazon-corretto-8.jdk/Contents/Home/"
+export JAVA_11_HOME="$HOME/Library/Java/JavaVirtualMachines/amazon-corretto-11.jdk/Contents/Home/"
+export JAVA_17_HOME="$HOME/Library/Java/JavaVirtualMachines/amazon-corretto-17.jdk/Contents/Home/"
+export JAVA_21_HOME="$HOME/Library/Java/JavaVirtualMachines/openjdk-21.0.2/Contents/Home/"
+export JAVA_HOME="$JAVA_17_HOME"
+export PATH="$PATH:$JAVA_HOME/bin"
+
+# --- aws -------------------------------------------------------------------
+export AWS_PROFILE=your-default-profile
