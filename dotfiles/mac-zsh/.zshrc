@@ -1,7 +1,120 @@
-export NODE_ENV=localhost
+# If you come from bash you might have to change your $PATH.
+# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
 
-# Fallback for interactive non-login shells, which never read .zprofile.
-# Sourcing twice is safe: PATH is de-duplicated by `typeset -U`.
+# Path to your Oh My Zsh installation.
+export ZSH="$HOME/.oh-my-zsh"
+
+# Set name of the theme to load --- if set to "random", it will
+# load a random theme each time Oh My Zsh is loaded, in which case,
+# to know which specific one was loaded, run: echo $RANDOM_THEME
+# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
+ZSH_THEME="sexy-aws-kube"
+
+# The theme relies on oh-my-zsh's async git prompt (enabled by default), which
+# computes the branch/dirty segment in a background process so the prompt never
+# blocks. Measured sync cost with async disabled: ~195ms per render in a small
+# repo and ~830ms in the 102k-file policy-management repo.
+# If the "on <branch>" segment ever fails to appear, force the synchronous path:
+# zstyle ':omz:alpha:lib:git' async-prompt no
+
+# Set list of themes to pick from when loading at random
+# Setting this variable when ZSH_THEME=random will cause zsh to load
+# a theme from this variable instead of looking in $ZSH/themes/
+# If set to an empty array, this variable will have no effect.
+# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
+
+# Uncomment the following line to use case-sensitive completion.
+# CASE_SENSITIVE="true"
+
+# Uncomment the following line to use hyphen-insensitive completion.
+# Case-sensitive completion must be off. _ and - will be interchangeable.
+# HYPHEN_INSENSITIVE="true"
+
+# Uncomment one of the following lines to change the auto-update behavior
+# zstyle ':omz:update' mode disabled  # disable automatic updates
+# zstyle ':omz:update' mode auto      # update automatically without asking
+# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
+
+# Uncomment the following line to change the frequency the auto-updater is run (in days).
+# zstyle ':omz:update' frequency 13
+
+# Uncomment the following line to set how old an update must be before it's applied, manually or via the auto-updater (in days).
+# zstyle ':omz:update' cooldown 10
+
+# Uncomment the following line if pasting URLs and other text is messed up.
+# DISABLE_MAGIC_FUNCTIONS="true"
+
+# Uncomment the following line to disable colors in ls.
+# DISABLE_LS_COLORS="true"
+
+# Uncomment the following line to disable auto-setting terminal title.
+# DISABLE_AUTO_TITLE="true"
+
+# Uncomment the following line to enable command auto-correction.
+# ENABLE_CORRECTION="true"
+
+# Uncomment the following line to display red dots whilst waiting for completion.
+# You can also set it to another string to have that shown instead of the default red dots.
+# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
+# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
+# COMPLETION_WAITING_DOTS="true"
+
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+# Measured on the 102k-file policy-management repo: scanning untracked files
+# costs 3900ms per prompt vs 160ms without. Leave this on; use `git status`
+# when you need to see untracked files.
+DISABLE_UNTRACKED_FILES_DIRTY="true"
+
+# Uncomment the following line if you want to change the command execution time
+# stamp shown in the history command output.
+# You can set one of the optional three formats:
+# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
+# or set a custom format using the strftime function format specifications,
+# see 'man strftime' for details.
+# HIST_STAMPS="mm/dd/yyyy"
+
+# Would you like to use another custom folder than $ZSH/custom?
+# Tracked in this repo at dotfiles/mac-zsh/oh-my-zsh-custom; symlink it to
+# ~/.oh-my-zsh-custom so the sexy-aws-kube theme is found.
+ZSH_CUSTOM="$HOME/.oh-my-zsh-custom"
+
+# Which plugins would you like to load?
+# Standard plugins can be found in $ZSH/plugins/
+# Custom plugins may be added to $ZSH_CUSTOM/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+#
+# git      - branch/dirty info used by the theme, plus g* aliases
+# aws      - aws_prompt_info for the prompt, asp/agp profile switching
+# kubectl  - kubectl completion and aliases (provides `k`)
+# kube-ps1 - kube context segment, mtime-cached so kubectl rarely runs
+# macos    - ofd/pfd/showfiles helpers
+# brew, golang, docker, gpg-agent - completions
+# colored-man-pages - readable man output
+#
+# Deliberately NOT enabled: `nvm` and `sdk`, because ~/.zprofile already
+# initializes nvm and sdkman by hand and loading both would double-init them.
+plugins=(
+  git
+  aws
+  kubectl
+  kube-ps1
+  macos
+  brew
+  golang
+  docker
+  gpg-agent
+  colored-man-pages
+)
+
+# Machine-local PATH/env and credentials, loaded BEFORE oh-my-zsh so that
+# plugins can detect binaries (kubectl, brew, go) on PATH. These two files live
+# only in $HOME and are deliberately not tracked in this repo - see
+# .zsh_path.example and .zsh_secrets.example for templates.
+# ~/.zprofile loads them for login shells; this covers non-login shells too.
+# Re-sourcing is harmless because `typeset -U` de-duplicates PATH.
 if [[ -z "$_ZSH_ENV_LOADED" ]]; then
   typeset -U path PATH
   [[ -r "$HOME/.zsh_path" ]]    && source "$HOME/.zsh_path"
@@ -9,45 +122,76 @@ if [[ -z "$_ZSH_ENV_LOADED" ]]; then
 fi
 export _ZSH_ENV_LOADED=1
 
-# --- completion ------------------------------------------------------------
-# Homebrew-provided zsh completions
-if [[ -d /opt/homebrew/share/zsh/site-functions ]]; then
-  fpath=(/opt/homebrew/share/zsh/site-functions $fpath)
-fi
+# --- plugin settings that must be set BEFORE oh-my-zsh.sh is sourced -------
+# oh-my-zsh loads plugins before the theme, so anything a plugin reads at load
+# time cannot be set from the theme file.
 
-# kubectl ships its own zsh completion; cache it so we don't fork on every start
-_zsh_completion_cache="$HOME/.zsh/completions"
-if (( $+commands[kubectl] )); then
-  [[ -d "$_zsh_completion_cache" ]] || mkdir -p "$_zsh_completion_cache"
-  if [[ ! -s "$_zsh_completion_cache/_kubectl" || "$commands[kubectl]" -nt "$_zsh_completion_cache/_kubectl" ]]; then
-    kubectl completion zsh > "$_zsh_completion_cache/_kubectl"
-  fi
-  fpath=("$_zsh_completion_cache" $fpath)
-fi
+# The aws plugin otherwise prepends $(aws_prompt_info) to RPROMPT; the
+# sexy-aws-kube theme renders the profile on the left instead.
+SHOW_AWS_PROMPT=false
 
-autoload -Uz compinit bashcompinit
-compinit
-bashcompinit  # lets us reuse bash completion scripts (e.g. nvm)
+# kube-ps1 reads these when it loads. Render just "(context)" to match the old
+# bash prompt: no ⎈ symbol, no namespace. kube-ps1 caches on the kubeconfig's
+# mtime, so kubectl only runs when the config actually changes.
+KUBE_PS1_PREFIX=" ("
+KUBE_PS1_SUFFIX=")"
+KUBE_PS1_SEPARATOR=""
+KUBE_PS1_SYMBOL_ENABLE=false
+KUBE_PS1_NS_ENABLE=false
+KUBE_PS1_PREFIX_COLOR="white"
+KUBE_PS1_CTX_COLOR="cyan"
+KUBE_PS1_SUFFIX_COLOR="white"
 
-# `k` is an alias for kubectl, so give it kubectl's completions
-(( $+commands[kubectl] )) && compdef k=kubectl
+source $ZSH/oh-my-zsh.sh
 
+# User configuration
+
+# export MANPATH="/usr/local/man:$MANPATH"
+
+# You may need to manually set your language environment
+# export LANG=en_US.UTF-8
+
+# Preferred editor for local and remote sessions
+# if [[ -n $SSH_CONNECTION ]]; then
+#   export EDITOR='vim'
+# else
+#   export EDITOR='nvim'
+# fi
+
+# Compilation flags
+# export ARCHFLAGS="-arch $(uname -m)"
+
+# Set personal aliases, overriding those provided by Oh My Zsh libs,
+# plugins, and themes. Aliases can be placed here, though Oh My Zsh
+# users are encouraged to define aliases within a top-level file in
+# the $ZSH_CUSTOM folder, with .zsh extension. Examples:
+# - $ZSH_CUSTOM/aliases.zsh
+# - $ZSH_CUSTOM/macos.zsh
+# For a full list of active aliases, run `alias`.
+#
+# Example aliases
+# alias zshconfig="mate ~/.zshrc"
+# alias ohmyzsh="mate ~/.oh-my-zsh"
+
+export NODE_ENV=localhost
+
+# oh-my-zsh runs compinit for us; bashcompinit lets us reuse bash completion
+# scripts that have no zsh equivalent (nvm ships bash-only completion).
+autoload -Uz bashcompinit && bashcompinit
 [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
 
 # --- history ---------------------------------------------------------------
-HISTFILE="$HOME/.zsh_history"
+# oh-my-zsh sets sane defaults; these raise the limits and share history
+# between concurrent shells.
 HISTSIZE=50000
 SAVEHIST=50000
-setopt append_history share_history hist_ignore_dups hist_ignore_space
-setopt extended_glob
-
-# --- prompt ----------------------------------------------------------------
-source ~/.zsh_prompt
+setopt share_history hist_ignore_space
 
 # --- aliases ---------------------------------------------------------------
+# The kubectl plugin already provides `k`, and the git plugin provides most
+# g* aliases, so only the ones oh-my-zsh does not cover are defined here.
 alias lg=lazygit
 alias vi=nvim
-alias k=kubectl
 alias vir='dir="$(ls -a $DEV_FOLDER | sk)" && [[ -n "$dir" ]] && vi "$DEV_FOLDER/$dir"'
 alias k9sc='context="$(kubectl config get-contexts -o name | sk)" && [[ -n "$context" ]] && k9s --context "$context"'
 alias kc='context="$(kubectl config get-contexts -o name | sk)" && [[ -n "$context" ]] && kubectl config use-context "$context"'
@@ -57,7 +201,7 @@ alias updateforkmain='git fetch --all --prune && git rebase upstream/main && git
 
 # --- functions -------------------------------------------------------------
 function dev-env() {
-  docker run -v ~/.saml2aws:/root/.saml2aws -v ~/.aws:/root/.aws -v ~/.config:/root/.config -v "$PWD":/src -it dev-env:$1 /bin/zsh
+  docker run -v ~/.saml2aws:/root/.saml2aws -v ~/.aws:/root/.aws -v ~/.config:/root/.config -v "$PWD":/src -it dev-env:$1 /bin/bash
 }
 
 function showcert() {
@@ -77,74 +221,72 @@ source /opt/homebrew/opt/chruby/share/chruby/auto.sh
 chruby ruby-3.4.1
 
 # --- login banner ----------------------------------------------------------
-user=$(whoami)
-hostname=$(hostname | sed 's/.local//g')
+# oh-my-zsh has no system-info plugin, so this stays custom. Unlike the old
+# .bashrc, every value is computed inside the function instead of at shell
+# startup, so the ~10 subprocesses (sw_vers, sysctl, uptime, df, ipconfig)
+# only run when the banner is actually drawn.
+function sysinfo() {
+  local versionNumber versionMajor versionMinor versionShort versionString
+  local ipAddressInternal mem
 
-version="OS X $(sw_vers -productVersion)"
-versionNumber=$(sw_vers -productVersion)
-versionMajor=${versionNumber%%.*}
-versionMinor=${${versionNumber#*.}%%.*}
-versionShort="${versionMajor}.${versionMinor}"
+  versionNumber=$(sw_vers -productVersion)
+  versionMajor=${versionNumber%%.*}
+  versionMinor=${${versionNumber#*.}%%.*}
+  versionShort="${versionMajor}.${versionMinor}"
 
-## en1 or en0 should contain the ip address
-ipAddressInternal=$(ipconfig getifaddr en1)
-if [ -z "$ipAddressInternal" ]; then
-  ipAddressInternal=$(ipconfig getifaddr en0)
+  case $versionMajor in
+    26) versionString="Tahoe" ;;
+    15) versionString="Sequoia" ;;
+    14) versionString="Sonoma" ;;
+    13) versionString="Ventura" ;;
+    12) versionString="Monterey" ;;
+    11) versionString="Big Sur" ;;
+    10)
+      case $versionShort in
+        10.15) versionString="Catalina" ;;
+        10.14) versionString="Mojave" ;;
+        10.13) versionString="High Sierra" ;;
+        10.12) versionString="Sierra" ;;
+        10.11) versionString="El Capitan" ;;
+        10.10) versionString="Yosemite" ;;
+        10.9)  versionString="Mavericks" ;;
+        10.8)  versionString="Mountain Lion" ;;
+        10.7)  versionString="Lion" ;;
+        10.6)  versionString="Snow Leopard" ;;
+      esac
+      ;;
+  esac
+
+  ## en1 or en0 should contain the ip address
+  ipAddressInternal=$(ipconfig getifaddr en1)
+  [[ -z "$ipAddressInternal" ]] && ipAddressInternal=$(ipconfig getifaddr en0)
+
+  mem=$(sysctl -n hw.memsize)
+
+  print -r -- "
+    User: $(whoami)
+    Hostname: $(hostname | sed 's/.local//g')
+    Version: OS X ${versionNumber} ${versionString}
+    Kernal: $(uname)
+    Uptime: $(uptime | sed 's/.*up \([^,]*\), .*/\1/')
+    Shell: $SHELL
+    Terminal: $TERM
+    CPU: $(sysctl -n machdep.cpu.brand_string)
+    Memory: $((mem / 1073741824)) GB
+    Disk Used: $(df -l -H | head -3 | tail -1 | awk '{print $5}')
+    Internal IP: ${ipAddressInternal}"
+}
+
+function ponyinfo() {
+  (( $+commands[ponysay] )) || { sysinfo; return; }
+  local ponies=(twilight trixie pinkie fluttershy rainbow pinkiecannon)
+  paste -d' ' \
+    <(ponysay --pony-only --pony ${ponies[RANDOM % ${#ponies} + 1]}) \
+    <(sysinfo)
+}
+
+# Only greet real interactive terminals, so scripts, scp/rsync and editor
+# shells are not polluted with the banner.
+if [[ -o interactive && -t 1 ]]; then
+  ponyinfo
 fi
-
-case $versionMajor in
-  26) versionString="Tahoe" ;;
-  15) versionString="Sequoia" ;;
-  14) versionString="Sonoma" ;;
-  13) versionString="Ventura" ;;
-  12) versionString="Monterey" ;;
-  11) versionString="Big Sur" ;;
-  10)
-    case $versionShort in
-      10.15) versionString="Catalina" ;;
-      10.14) versionString="Mojave" ;;
-      10.13) versionString="High Sierra" ;;
-      10.12) versionString="Sierra" ;;
-      10.11) versionString="El Capitan" ;;
-      10.10) versionString="Yosemite" ;;
-      10.9)  versionString="Mavericks" ;;
-      10.8)  versionString="Mountain Lion" ;;
-      10.7)  versionString="Lion" ;;
-      10.6)  versionString="Snow Leopard" ;;
-      10.5)  versionString="Leopard" ;;
-      10.4)  versionString="Tiger" ;;
-      10.3)  versionString="Panther" ;;
-      10.2)  versionString="Jaguar" ;;
-      10.1)  versionString="Puma" ;;
-      10.0)  versionString="Cheetah" ;;
-    esac
-    ;;
-esac
-
-kernel=$(uname)
-uptime=$(uptime | sed 's/.*up \([^,]*\), .*/\1/')
-shell="$SHELL"
-terminal="$TERM"
-cpu=$(sysctl -n machdep.cpu.brand_string)
-mem=$(sysctl -n hw.memsize)
-ram="$((mem / 1073741824)) GB"
-disk=$(df -l -H | head -3 | tail -1 | awk '{print $5}')
-
-if (( $+commands[ponysay] )); then
-  ponies=(twilight trixie pinkie fluttershy rainbow pinkiecannon)
-  paste -d' ' <(ponysay --pony-only --pony ${ponies[RANDOM % ${#ponies} + 1]}) <(echo "
-    User: $user
-    Hostname: $hostname
-    Version: $version $versionString
-    Kernal: $kernel
-    Uptime: $uptime
-    Shell: $shell
-    Terminal: $terminal
-    CPU: $cpu
-    Memory: $ram
-    Disk Used: $disk
-    Internal IP: $ipAddressInternal")
-fi
-
-expressions=("Notice me senpai" "dessu dessu" "baka baka baka" "nani")
-#say -v Kyoko "${expressions[RANDOM % ${#expressions} + 1]}"
