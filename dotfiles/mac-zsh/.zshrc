@@ -146,12 +146,31 @@ KUBE_PS1_SUFFIX_COLOR="white"
 source $ZSH/oh-my-zsh.sh
 
 # --- prompt settings that must come AFTER oh-my-zsh.sh ---------------------
-# The kube context and AWS profile go on the right-hand prompt. This has to run
-# after oh-my-zsh.sh because the theme is loaded there, and many themes assign
-# RPROMPT themselves, which would clobber the aws plugin's own injection.
-# robbyrussell happens to leave RPROMPT alone, but assigning it here works
-# regardless of which theme is selected.
-RPROMPT='$(kube_ps1)$(aws_prompt_info)'
+# Put the kube context and AWS profile on the LEFT prompt, just before the git
+# segment. The theme is loaded inside oh-my-zsh.sh, so $PROMPT only exists once
+# that has run.
+#
+# This splices the segments in rather than rewriting $PROMPT wholesale, so it
+# keeps working if the theme changes. Two details matter:
+#   1. The literal string '$(git_prompt_info)' MUST survive in $PROMPT.
+#      lib/git.zsh's _defer_async_git_register pattern-matches the prompt
+#      variables for exactly that text to decide whether to enable the async
+#      git prompt. Interpolating the git segment any other way silently makes
+#      every prompt render block on `git status`.
+#   2. The substitution is on the unexpanded literal, so the pattern needs the
+#      $ and parens backslash-escaped.
+# _defer_async_git_register runs as a precmd hook (i.e. at the first prompt,
+# after this file finishes), so editing $PROMPT here is still seen by it.
+if [[ $PROMPT == *'$(git_prompt_info)'* ]]; then
+  PROMPT=${PROMPT/\$\(git_prompt_info\)/\$\(kube_ps1\)\$\(aws_prompt_info\) \$\(git_prompt_info\)}
+else
+  # Theme doesn't use git_prompt_info; just append the segments.
+  PROMPT+='$(kube_ps1)$(aws_prompt_info) '
+fi
+
+# The aws plugin sets RPROMPT='$(aws_prompt_info)' at load time. Both segments
+# now live on the left, so clear it to avoid showing the profile twice.
+RPROMPT=''
 
 # aws_prompt_info expands these at render time. They must be set after
 # oh-my-zsh.sh because $fg is only populated once `colors` has been autoloaded.
