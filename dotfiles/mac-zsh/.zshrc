@@ -8,13 +8,18 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="sexy-aws-kube"
+# Stock oh-my-zsh theme. No bundled theme shows git + aws + kube together, but
+# robbyrussell leaves RPROMPT alone, so the aws and kube segments can be added
+# with a single RPROMPT assignment after oh-my-zsh.sh is sourced (see below).
+# A custom theme that renders all three inline is kept in this repo at
+# oh-my-zsh-custom/themes/sexy-aws-kube.zsh-theme if you want to go back to it.
+ZSH_THEME="robbyrussell"
 
-# The theme relies on oh-my-zsh's async git prompt (enabled by default), which
+# robbyrussell uses oh-my-zsh's async git prompt (enabled by default), which
 # computes the branch/dirty segment in a background process so the prompt never
 # blocks. Measured sync cost with async disabled: ~195ms per render in a small
 # repo and ~830ms in the 102k-file policy-management repo.
-# If the "on <branch>" segment ever fails to appear, force the synchronous path:
+# If the git segment ever fails to appear, force the synchronous path:
 # zstyle ':omz:alpha:lib:git' async-prompt no
 
 # Set list of themes to pick from when loading at random
@@ -76,9 +81,9 @@ DISABLE_UNTRACKED_FILES_DIRTY="true"
 # HIST_STAMPS="mm/dd/yyyy"
 
 # Would you like to use another custom folder than $ZSH/custom?
-# Tracked in this repo at dotfiles/mac-zsh/oh-my-zsh-custom; symlink it to
-# ~/.oh-my-zsh-custom so the sexy-aws-kube theme is found.
-ZSH_CUSTOM="$HOME/.oh-my-zsh-custom"
+# Not needed - this config uses a stock theme and no custom plugins, so the
+# default $ZSH/custom is fine.
+# ZSH_CUSTOM=/path/to/new-custom-folder
 
 # Which plugins would you like to load?
 # Standard plugins can be found in $ZSH/plugins/
@@ -124,11 +129,7 @@ export _ZSH_ENV_LOADED=1
 
 # --- plugin settings that must be set BEFORE oh-my-zsh.sh is sourced -------
 # oh-my-zsh loads plugins before the theme, so anything a plugin reads at load
-# time cannot be set from the theme file.
-
-# The aws plugin otherwise prepends $(aws_prompt_info) to RPROMPT; the
-# sexy-aws-kube theme renders the profile on the left instead.
-SHOW_AWS_PROMPT=false
+# time has to be set here.
 
 # kube-ps1 reads these when it loads. Render just "(context)" to match the old
 # bash prompt: no ⎈ symbol, no namespace. kube-ps1 caches on the kubeconfig's
@@ -143,6 +144,21 @@ KUBE_PS1_CTX_COLOR="cyan"
 KUBE_PS1_SUFFIX_COLOR="white"
 
 source $ZSH/oh-my-zsh.sh
+
+# --- prompt settings that must come AFTER oh-my-zsh.sh ---------------------
+# The kube context and AWS profile go on the right-hand prompt. This has to run
+# after oh-my-zsh.sh because the theme is loaded there, and many themes assign
+# RPROMPT themselves, which would clobber the aws plugin's own injection.
+# robbyrussell happens to leave RPROMPT alone, but assigning it here works
+# regardless of which theme is selected.
+RPROMPT='$(kube_ps1)$(aws_prompt_info)'
+
+# aws_prompt_info expands these at render time. They must be set after
+# oh-my-zsh.sh because $fg is only populated once `colors` has been autoloaded.
+# Renders " (profile)" to match the kube segment instead of the "<aws:...>"
+# default.
+ZSH_THEME_AWS_PROFILE_PREFIX=" %{$fg[white]%}(%{$fg[yellow]%}"
+ZSH_THEME_AWS_PROFILE_SUFFIX="%{$fg[white]%})%{$reset_color%}"
 
 # User configuration
 
