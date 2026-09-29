@@ -1,17 +1,26 @@
-export BASH_COMPLETION_COMPAT_DIR="/usr/local/etc/bash_completion.d"
+BASH_COMPLETION_COMPAT_DIR="/usr/local/etc/bash_completion.d"
 [[ -r "/usr/local/etc/profile.d/bash_completion.sh" ]] && . "/usr/local/etc/profile.d/bash_completion.sh"
 
+export NODE_ENV=localhost
+
 . ~/.bash_prompt
+#. ~/.bash_profile
+
+alias lg=lazygit
+alias vi=nvim
 alias k=kubectl
 alias vir='dir="$(ls -a $DEV_FOLDER | sk)" && [[ -n "$dir" ]] && vi "$DEV_FOLDER/$dir"'
 alias k9sc='context="$(kubectl config get-contexts -o name |sk)" && [[ -n "$context" ]] && k9s --context "$context"'
 alias kc='context="$(kubectl config get-contexts -o name |sk)" && [[ -n "$context" ]] && kubectl config use-context "$context"'
+alias awsp='profile="$(aws configure list-profiles | sk)" && [[ -n "$profile" ]] && export AWS_PROFILE="$profile"'
 
-complete -F __start_kubectl k
+source "/Users/JWATKDK/.sdkman/bin/sdkman-init.sh"
 
 function dev-env() {
-  docker run -v ~/.saml2aws:/root/.saml2aws -v ~/.aws:/root/.aws -v ~/.config:/root/.config -v "$PWD":/src -it dev-env:sbt /bin/bash
+  docker run -v ~/.saml2aws:/root/.saml2aws -v ~/.aws:/root/.aws -v ~/.config:/root/.config -v "$PWD":/src -it dev-env:$1 /bin/bash
 }
+
+complete -F __start_kubectl k
 
 function showcert() {
   nslookup $1
@@ -41,15 +50,6 @@ if [ -z "$ipAddressInternal" ]; then
     ipAddressInternal=`ipconfig getifaddr en0`
 fi
 
-## Hy-Vee VPN, F5 Big IP Edge Client
-vpnIp=`ifconfig utun2 2> /dev/null | tail -1 | awk '{print $2}'`
-vpnHost=`cat /etc/hosts | tail -1`
-
-vpn="Not connected"
-
-if [ "$vpnHost" != "#VPN" ]; then
-    vpn="$vpnIp (`echo $vpnHost | awk '{print $2}'`)"
-fi
 
 case $versionShort in
     11.4)
@@ -130,8 +130,7 @@ ram="$((mem/1073741824)) GB"
 ## Disk usage
 disk=`df -l -H | head -3 | tail -1 | awk '{print $5}'`
 
-
-ponies=("twilight", "trixie", "pinkie", "fluttershy", "rainbow")
+ponies=("twilight", "trixie", "pinkie", "fluttershy", "rainbow", "pinkiecannon")
 paste -d' ' <(ponysay --pony-only --pony ${ponies[$(jot -r 1 0) % ${#ponies[@]} ]}) <(echo "
     User: $user
     Hostname: $hostname
@@ -143,15 +142,25 @@ paste -d' ' <(ponysay --pony-only --pony ${ponies[$(jot -r 1 0) % ${#ponies[@]} 
     CPU: $cpu
     Memory: $ram
     Disk Used: $disk
-    Internal IP: $ipAddressInternal
-    VPN: $vpn")
+    Internal IP: $ipAddressInternal")
 expressions=("Notice me senpai", "dessu dessu", "baka baka baka", "nani")
-say -v Kyoko "${expressions[$(jot -r 1 0) % ${#expressions[@]} ]}"
+#say -v Kyoko "${expressions[$(jot -r 1 0) % ${#expressions[@]} ]}"
 
 #say -v Kyoko Notice me senpai
 
 function gprunemerged() {
     main=$(git remote show origin | sed -n "/HEAD branch/s/.*: //p")
-    git checkout "$main" && git pull && git branch -vv | grep -v "$main" | grep ": gone" | awk '{print $1}' | xargs -n 1 git branch -D
+    git checkout "$main" && git fetch --all --prune && git pull && git branch -vv | grep -v "$main" | grep ": gone" | awk '{print $1}' | xargs -n 1 git branch -D
 }
 
+alias updatefork='git fetch --all --prune && git rebase upstream/master && git push'
+alias updateforkmain='git fetch --all --prune && git rebase upstream/main && git push'
+
+# Run twolfson/sexy-bash-prompt
+# Run twolfson/sexy-bash-prompt
+. "$HOME/.cargo/env"
+source /opt/homebrew/opt/chruby/share/chruby/chruby.sh
+source /opt/homebrew/opt/chruby/share/chruby/auto.sh
+chruby ruby-3.4.1
+
+. "$HOME/.local/bin/env"
