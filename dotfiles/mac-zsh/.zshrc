@@ -151,7 +151,7 @@ source $ZSH/oh-my-zsh.sh
 # that has run.
 #
 # This splices the segments in rather than rewriting $PROMPT wholesale, so it
-# keeps working if the theme changes. Two details matter:
+# keeps working if the theme changes. Three details matter:
 #   1. The literal string '$(git_prompt_info)' MUST survive in $PROMPT.
 #      lib/git.zsh's _defer_async_git_register pattern-matches the prompt
 #      variables for exactly that text to decide whether to enable the async
@@ -159,9 +159,15 @@ source $ZSH/oh-my-zsh.sh
 #      every prompt render block on `git status`.
 #   2. The substitution is on the unexpanded literal, so the pattern needs the
 #      $ and parens backslash-escaped.
+#   3. Both KUBE_PS1_PREFIX and ZSH_THEME_AWS_PROFILE_PREFIX start with their
+#      own leading space, so the splice swallows the theme's existing space
+#      before the git segment. That keeps the spacing right whether neither,
+#      either, or both segments render.
 # _defer_async_git_register runs as a precmd hook (i.e. at the first prompt,
 # after this file finishes), so editing $PROMPT here is still seen by it.
-if [[ $PROMPT == *'$(git_prompt_info)'* ]]; then
+if [[ $PROMPT == *' $(git_prompt_info)'* ]]; then
+  PROMPT=${PROMPT/ \$\(git_prompt_info\)/\$\(kube_ps1\)\$\(aws_prompt_info\) \$\(git_prompt_info\)}
+elif [[ $PROMPT == *'$(git_prompt_info)'* ]]; then
   PROMPT=${PROMPT/\$\(git_prompt_info\)/\$\(kube_ps1\)\$\(aws_prompt_info\) \$\(git_prompt_info\)}
 else
   # Theme doesn't use git_prompt_info; just append the segments.
