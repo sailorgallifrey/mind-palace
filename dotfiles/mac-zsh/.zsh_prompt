@@ -1,0 +1,262 @@
+#!/usr/bin/env zsh
+# Native zsh port of sexy-bash-prompt (twolfson/sexy-bash-prompt, forked from gf3)
+# with AWS profile and kubernetes context segments.
+#
+# Layout:
+#   user (aws-profile) (kube-context) in ~/dir on branch* [rebase]
+#   $
+#
+# Differences from the bash version (all performance / correctness related):
+#   * git state comes from one `git status --porcelain --branch` call instead of
+#     ~6 separate git invocations per prompt render
+#   * the kube context is parsed out of the kubeconfig and cached on its mtime
+#     instead of shelling out to `kubectl config current-context` every render
+#   * PROMPT is rebuilt in precmd, so no `setopt prompt_subst` is required and
+#     values containing `%` cannot corrupt the prompt
+
+zmodload -F zsh/stat b:zstat 2>/dev/null
+autoload -Uz add-zsh-hook
+
+# --- colors ----------------------------------------------------------------
+if (( ${terminfo[colors]:-0} >= 256 )); then
+  _zp_user_color="%B%F{27}"          # BOLD BLUE
+  _zp_preposition_color="%B%F{7}"    # BOLD WHITE
+  _zp_device_color="%B%F{39}"        # BOLD CYAN
+  _zp_dir_color="%B%F{76}"           # BOLD GREEN
+  _zp_git_status_color="%B%F{154}"   # BOLD YELLOW
+  _zp_git_progress_color="%B%F{9}"   # BOLD RED
+else
+  _zp_user_color="%B%F{blue}"
+  _zp_preposition_color="%B%F{white}"
+  _zp_device_color="%B%F{cyan}"
+  _zp_dir_color="%B%F{green}"
+  _zp_git_status_color="%B%F{yellow}"
+  _zp_git_progress_color="%B%F{red}"
+fi
+_zp_reset="%b%f"
+_zp_symbol_color="%B"
+_zp_symbol_error_color="%B%F{red}"
+
+# `#` for root, `%` is the zsh convention for a normal user
+if (( EUID == 0 )); then
+  _zp_symbol="#"
+else
+  _zp_symbol="%%"
+fi
+
+# --- environment overrides -------------------------------------------------
+[[ -n "$PROMPT_USER_COLOR" ]]           && _zp_user_color="$PROMPT_USER_COLOR"
+[[ -n "$PROMPT_PREPOSITION_COLOR" ]]    && _zp_preposition_color="$PROMPT_PREPOSITION_COLOR"
+[[ -n "$PROMPT_DEVICE_COLOR" ]]         && _zp_device_color="$PROMPT_DEVICE_COLOR"
+[[ -n "$PROMPT_DIR_COLOR" ]]            && _zp_dir_color="$PROMPT_DIR_COLOR"
+[[ -n "$PROMPT_GIT_STATUS_COLOR" ]]     && _zp_git_status_color="$PROMPT_GIT_STATUS_COLOR"
+[[ -n "$PROMPT_GIT_PROGRESS_COLOR" ]]   && _zp_git_progress_color="$PROMPT_GIT_PROGRESS_COLOR"
+[[ -n "$PROMPT_SYMBOL" ]]               && _zp_symbol="$PROMPT_SYMBOL"
+[[ -n "$PROMPT_SYMBOL_COLOR" ]]         && _zp_symbol_color="$PROMPT_SYMBOL_COLOR"
+[[ -n "$PROMPT_SYMBOL_ERROR_COLOR" ]]   && _zp_symbol_error_color="$PROMPT_SYMBOL_ERROR_COLOR"
+
+# --- symbols ---------------------------------------------------------------
+_zp_synced_symbol=""
+_zp_dirty_synced_symbol="*"
+_zp_unpushed_symbol="△"
+_zp_dirty_unpushed_symbol="▲"
+_zp_unpulled_symbol="▽"
+_zp_dirty_unpulled_symbol="▼"
+_zp_unpushed_unpulled_symbol="⬡"
+_zp_dirty_unpushed_unpulled_symbol="⬢"
+
+[[ -n "$PROMPT_SYNCED_SYMBOL" ]]                 && _zp_synced_symbol="$PROMPT_SYNCED_SYMBOL"
+[[ -n "$PROMPT_DIRTY_SYNCED_SYMBOL" ]]           && _zp_dirty_synced_symbol="$PROMPT_DIRTY_SYNCED_SYMBOL"
+[[ -n "$PROMPT_UNPUSHED_SYMBOL" ]]               && _zp_unpushed_symbol="$PROMPT_UNPUSHED_SYMBOL"
+[[ -n "$PROMPT_DIRTY_UNPUSHED_SYMBOL" ]]         && _zp_dirty_unpushed_symbol="$PROMPT_DIRTY_UNPUSHED_SYMBOL"
+[[ -n "$PROMPT_UNPULLED_SYMBOL" ]]               && _zp_unpulled_symbol="$PROMPT_UNPULLED_SYMBOL"
+[[ -n "$PROMPT_DIRTY_UNPULLED_SYMBOL" ]]         && _zp_dirty_unpulled_symbol="$PROMPT_DIRTY_UNPULLED_SYMBOL"
+[[ -n "$PROMPT_UNPUSHED_UNPULLED_SYMBOL" ]]      && _zp_unpushed_unpulled_symbol="$PROMPT_UNPUSHED_UNPULLED_SYMBOL"
+[[ -n "$PROMPT_DIRTY_UNPUSHED_UNPULLED_SYMBOL" ]] && _zp_dirty_unpushed_unpulled_symbol="$PROMPT_DIRTY_UNPUSHED_UNPULLED_SYMBOL"
+
+# --- behavior --------------------------------------------------------------
+# Only paint the prompt symbol red for the command that actually failed, not
+# for every subsequent empty <enter>.
+_zp_show_error_once="${PROMPT_SHOW_ERROR_ONCE:-1}"
+
+# --- helpers ---------------------------------------------------------------
+
+# Escape a literal string so prompt escapes inside it are not interpreted.
+# Sets REPLY (avoids a subshell per call).
+_zp_quote() { REPLY="${1//\%/%%}" }
+
+# Current kube context, cached against the kubeconfig's mtime.
+typeset -g _zp_kube_cache_key="" _zp_kube_context=""
+_zp_get_kube_context() {
+  local file="${KUBECONFIG:-$HOME/.kube/config}"
+  file="${file%%:*}"  # only the first entry of a KUBECONFIG list is inspected
+
+  if [[ ! -r "$file" ]]; then
+    _zp_kube_cache_key=""
+    _zp_kube_context=""
+    return
+  fi
+
+  local -a st
+  zstat -A st +mtime "$file" 2>/dev/null
+  local key="$file:${st[1]}"
+  [[ "$key" == "$_zp_kube_cache_key" ]] && return
+
+  local -a lines
+  lines=( ${(f)"$(<$file)"} )
+  local line="${lines[(r)current-context*]}"
+  line="${line#*:}"
+  # context names never contain whitespace, so trimming this way is safe
+  line="${line//[[:space:]\"\']/}"
+
+  _zp_kube_context="$line"
+  _zp_kube_cache_key="$key"
+}
+
+# Locate the git dir by walking up from $PWD, which avoids forking `git
+# rev-parse` on every prompt. Falls back to git itself for worktrees and
+# submodules, where .git is a file rather than a directory.
+# Sets _zp_git_dir.
+typeset -g _zp_git_dir=""
+_zp_find_git_dir() {
+  if [[ -n "$GIT_DIR" ]]; then
+    _zp_git_dir="$GIT_DIR"
+    return 0
+  fi
+
+  local dir="$PWD"
+  while true; do
+    if [[ -d "$dir/.git" ]]; then
+      _zp_git_dir="$dir/.git"
+      return 0
+    elif [[ -f "$dir/.git" ]]; then
+      _zp_git_dir="$(git rev-parse --git-dir 2>/dev/null)"
+      [[ -n "$_zp_git_dir" ]]
+      return
+    fi
+    [[ -z "$dir" || "$dir" == "/" ]] && break
+    dir="${dir:h}"
+  done
+
+  _zp_git_dir=""
+  return 1
+}
+
+# In-progress git operations (merge, rebase, am, cherry-pick, bisect, revert).
+# https://github.com/git/git/blob/v1.9-rc2/wt-status.c#L1199-L1241
+# Sets _zp_git_progress.
+typeset -g _zp_git_progress=""
+_zp_get_git_progress() {
+  local git_dir="$1" out=""
+
+  if [[ -f "$git_dir/MERGE_HEAD" ]]; then
+    out=" [merge]"
+  elif [[ -d "$git_dir/rebase-apply" ]]; then
+    if [[ -f "$git_dir/rebase-apply/applying" ]]; then
+      out=" [am]"
+    else
+      out=" [rebase]"
+    fi
+  elif [[ -d "$git_dir/rebase-merge" ]]; then
+    out=" [rebase]"
+  elif [[ -f "$git_dir/CHERRY_PICK_HEAD" ]]; then
+    out=" [cherry-pick]"
+  fi
+  [[ -f "$git_dir/BISECT_LOG" ]]  && out+=" [bisect]"
+  [[ -f "$git_dir/REVERT_HEAD" ]] && out+=" [revert]"
+
+  _zp_git_progress="$out"
+}
+
+# Branch name + sync symbol from a single `git status` call.
+# Sets _zp_git_info.
+typeset -g _zp_git_info=""
+_zp_get_git_info() {
+  local -a lines
+  lines=( ${(f)"$(git status --porcelain --branch 2>/dev/null)"} )
+  if (( ${#lines} == 0 )); then
+    _zp_git_info=""
+    return
+  fi
+
+  # Header looks like one of:
+  #   ## main...origin/main [ahead 1, behind 2]
+  #   ## main                        (no upstream configured)
+  #   ## HEAD (no branch)            (detached)
+  #   ## No commits yet on main
+  local header="${lines[1]#\#\# }"
+  local branch ahead=0 behind=0 has_upstream=0
+
+  if [[ "$header" == "HEAD (no branch)" ]]; then
+    branch="(no branch)"
+  else
+    branch="${header%% *}"
+    branch="${branch%%...*}"
+    [[ "$header" == *...* ]] && has_upstream=1
+    [[ "$header" == *"[ahead "* ]]  && ahead=1
+    [[ "$header" == *"behind "* ]]  && behind=1
+  fi
+
+  # No upstream means nothing has been pushed yet, which the bash prompt also
+  # reported as "ahead".
+  (( has_upstream )) || ahead=1
+
+  local dirty=0
+  (( ${#lines} > 1 )) && dirty=1
+
+  local symbol
+  if   (( dirty && ahead && behind )); then symbol="$_zp_dirty_unpushed_unpulled_symbol"
+  elif (( ahead && behind ));          then symbol="$_zp_unpushed_unpulled_symbol"
+  elif (( dirty && ahead ));           then symbol="$_zp_dirty_unpushed_symbol"
+  elif (( ahead ));                    then symbol="$_zp_unpushed_symbol"
+  elif (( dirty && behind ));          then symbol="$_zp_dirty_unpulled_symbol"
+  elif (( behind ));                   then symbol="$_zp_unpulled_symbol"
+  elif (( dirty ));                    then symbol="$_zp_dirty_synced_symbol"
+  else                                      symbol="$_zp_synced_symbol"
+  fi
+
+  _zp_git_info="${branch}${symbol}"
+}
+
+# --- prompt ----------------------------------------------------------------
+typeset -g _zp_last_histcmd=0
+
+_zp_precmd() {
+  local exit_code=$?
+  local REPLY symbol_color git_segment="" git_info git_progress aws kube
+
+  # Hitting <enter> on an empty line does not advance HISTCMD, so the previous
+  # failure should not keep the symbol red.
+  if [[ "$_zp_show_error_once" == "1" ]]; then
+    (( HISTCMD == _zp_last_histcmd )) && exit_code=0
+  fi
+  _zp_last_histcmd=$HISTCMD
+
+  local symbol_color="$_zp_symbol_color"
+  (( exit_code != 0 )) && symbol_color="$_zp_symbol_error_color"
+
+  _zp_get_kube_context
+
+  if _zp_find_git_dir; then
+    _zp_get_git_info
+    _zp_get_git_progress "$_zp_git_dir"
+    if [[ -n "$_zp_git_info" ]]; then
+      _zp_quote "$_zp_git_info";     git_info="$REPLY"
+      _zp_quote "$_zp_git_progress"; git_progress="$REPLY"
+      git_segment=" ${_zp_preposition_color}on${_zp_reset}"
+      git_segment+=" ${_zp_git_status_color}${git_info}"
+      git_segment+="${_zp_git_progress_color}${git_progress}${_zp_reset}"
+    fi
+  fi
+
+  _zp_quote "$AWS_PROFILE";       aws="$REPLY"
+  _zp_quote "$_zp_kube_context";  kube="$REPLY"
+
+  PROMPT="${_zp_reset}${_zp_user_color}%n${_zp_reset} \
+${_zp_preposition_color}(${_zp_reset}${_zp_device_color}${aws}${_zp_reset}${_zp_preposition_color})${_zp_reset} \
+${_zp_preposition_color}(${_zp_reset}${_zp_device_color}${kube}${_zp_reset}${_zp_preposition_color})${_zp_reset} \
+${_zp_preposition_color}in${_zp_reset} ${_zp_dir_color}%~${_zp_reset}${git_segment}
+${symbol_color}${_zp_symbol} ${_zp_reset}"
+}
+
+add-zsh-hook precmd _zp_precmd
